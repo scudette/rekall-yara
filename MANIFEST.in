@@ -1,0 +1,4 @@
+recursive-include rekall_yara *
+prune rekall_yara/yara/windows
+prune rekall_yara/yara/docs
+prune rekall_yara/yara/tests

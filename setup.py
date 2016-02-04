@@ -15,6 +15,8 @@
 #
 import re
 import os
+import shutil
+import posixpath
 import platform
 import subprocess
 import sys
@@ -30,14 +32,21 @@ if '--with-profiling' in args:
     macros.append(('PROFILING_ENABLED', '1'))
     args.remove('--with-profiling')
 
-
 def get_sources(source):
     result = []
-    exclusions = set("cuckoo.c magic.c".split())
+    exclusions = set([
+        "rekall_yara/yara/libyara/modules/cuckoo.c",
+        "rekall_yara/yara/libyara/modules/magic.c",
+        "rekall_yara/yara/libyara/modules/hash.c"]
+    )
     for directory, _, files in os.walk(source):
         for x in files:
-            if x.endswith(".c") and x not in exclusions:
-                result.append(os.path.join(directory, x))
+            filename = posixpath.join(directory, x)
+            if filename in exclusions:
+                continue
+            
+            if x.endswith(".c"):
+                result.append(filename)
 
     return result
 
@@ -61,7 +70,7 @@ class BuildExtCommand(build_ext):
         # Except on Linux we need to run the configure script.
         if platform.system() != "Windows":
             subprocess.check_call(
-                ["./configure", "--without-crypto",
+                ["/bin/sh", "./configure", "--without-crypto",
                  "--disable-magic", "--disable-cuckoo",
                  "--disable-dmalloc"],
                 cwd="rekall_yara/yara/")
@@ -81,9 +90,22 @@ class CleanCommand(Command):
         if os.getcwd() != self.cwd:
             raise RuntimeError('Must be in package root: %s' % self.cwd)
 
-        os.system('rm -rf ./build ./dist')
+    for dirname in ['./build', './dist', 'rekall_yara.egg-info']:
+        shutil.rmtree(dirname, True)
 
+include_dirs = [
+    'rekall_yara/yara/yara-python',
+    'rekall_yara/yara/libyara/include',
+    'rekall_yara/yara/libyara/',
+    'rekall_yara/yara/',
+]
+libraries = []
 
+if platform.system() == "Windows":
+    include_dirs.append("rekall_yara/windows/")
+    libraries.append("advapi32")
+
+    
 setup(script_args=args,
       name='rekall_yara',
       long_description=open("README.txt").read(),
@@ -93,23 +115,14 @@ setup(script_args=args,
       ),
       version='3.4.0',
       packages=["rekall_yara"],
-      package_data={
-          "rekall_yara": ["config.h"],
-      },
       author='Victor M. Alvarez',
       author_email='plusvic@gmail.com;vmalvarez@virustotal.com',
       zip_safe=False,
       ext_modules=[Extension(
-          name='rekall_yara/yara',
+          name='yara',
           sources=sources,
-          libraries=['ssl', 'crypto'],
-          include_dirs=[
-              'rekall_yara/yara/yara-python',
-              'rekall_yara/yara/libyara/include',
-              'rekall_yara/yara/libyara/',
-              'rekall_yara/yara/',
-              '.',
-          ],
+          libraries=libraries,
+          include_dirs=include_dirs,
           define_macros=macros,
           extra_compile_args=['-std=gnu99']
       )])
