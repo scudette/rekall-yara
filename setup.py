@@ -23,10 +23,15 @@ import sys
 
 from setuptools import setup, Command, Extension
 from setuptools.command.build_ext import build_ext
+from setuptools.command.sdist import sdist
 
 
 args = sys.argv[1:]
 macros = []
+
+# The version of this package.
+SUBVERSION = "1"
+
 
 if '--with-profiling' in args:
     macros.append(('PROFILING_ENABLED', '1'))
@@ -37,14 +42,14 @@ def get_sources(source):
     exclusions = set([
         "rekall_yara/yara/libyara/modules/cuckoo.c",
         "rekall_yara/yara/libyara/modules/magic.c",
-        "rekall_yara/yara/libyara/modules/hash.c"]
-    )
+        "rekall_yara/yara/libyara/modules/hash.c"
+    ])
     for directory, _, files in os.walk(source):
         for x in files:
             filename = posixpath.join(directory, x)
             if filename in exclusions:
                 continue
-            
+
             if x.endswith(".c"):
                 result.append(filename)
 
@@ -54,14 +59,19 @@ sources = ["rekall_yara/yara-python/yara-python.c"]
 sources += get_sources("rekall_yara/yara/libyara/")
 
 def parse_version():
-    version = open("version.txt").read()
-    m = re.search(r"\d+\.\d+\.\d+", version)
+    """Create a version based on the yara version."""
+    version = open("rekall_yara/version.txt").read()
+    m = re.search(r"(\d+)\.(\d+)\.(\d+)", version)
     if m:
-        return m.group(0)
-    return version
+        return "%s.%s.%s.%s" % (m.group(1),
+                                m.group(2),
+                                m.group(3),
+                                SUBVERSION)
+    return version + SUBVERSION
 
 
 class BuildExtCommand(build_ext):
+
     """Custom handler for the build_ext command."""
 
     project_builder = None
@@ -90,8 +100,16 @@ class CleanCommand(Command):
         if os.getcwd() != self.cwd:
             raise RuntimeError('Must be in package root: %s' % self.cwd)
 
-    for dirname in ['./build', './dist', 'rekall_yara.egg-info']:
-        shutil.rmtree(dirname, True)
+        for dirname in ['./build', './dist', 'rekall_yara.egg-info']:
+            shutil.rmtree(dirname, True)
+
+
+class Sdist(sdist):
+    def run(self):
+        # Make sure the tree is fully clean before we upload an sdist.
+        subprocess.check_call(["./update.sh"])
+        return sdist.run(self)
+
 
 include_dirs = [
     'rekall_yara/yara/yara-python',
@@ -105,15 +123,17 @@ if platform.system() == "Windows":
     include_dirs.append("rekall_yara/windows/")
     libraries.append("advapi32")
 
-    
+
 setup(script_args=args,
       name='rekall_yara',
+      url="http://www.rekall-forensic.com",
       long_description=open("README.txt").read(),
       cmdclass=dict(
           build_ext=BuildExtCommand,
           clean=CleanCommand,
+          sdist=Sdist,
       ),
-      version='3.4.0',
+      version=parse_version(),
       packages=["rekall_yara"],
       author='Victor M. Alvarez',
       author_email='plusvic@gmail.com;vmalvarez@virustotal.com',

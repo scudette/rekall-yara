@@ -12,8 +12,9 @@ cd yara/
 git checkout master
 git pull
 git reset --hard
+git clean -x -f -d
 echo "Updating version to $TOP_LEVEL/version.txt"
-git tag | tail -1 > $TOP_LEVEL/version.txt
+git tag | tail -1 > $TOP_LEVEL/rekall_yara/version.txt
 
 echo Running autotools.
 ./bootstrap.sh
