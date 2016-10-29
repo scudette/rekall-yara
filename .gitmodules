@@ -1,6 +1,6 @@
 [submodule "yara"]
 	path = rekall_yara/yara
-	url = https://github.com/plusvic/yara.git
+	url = https://github.com/VirusTotal/yara.git
 [submodule "yara-python"]
 	path = rekall_yara/yara-python
-	url = https://github.com/plusvic/yara-python.git
+	url = https://github.com/VirusTotal/yara-python.git

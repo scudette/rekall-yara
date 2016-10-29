@@ -40,14 +40,14 @@ if '--with-profiling' in args:
 def get_sources(source):
     result = []
     exclusions = set([
-        "rekall_yara/yara/libyara/modules/cuckoo.c",
-        "rekall_yara/yara/libyara/modules/magic.c",
-        "rekall_yara/yara/libyara/modules/hash.c"
+        "modules/cuckoo.c",
+        "modules/magic.c",
+        "modules/hash.c"
     ])
     for directory, _, files in os.walk(source):
         for x in files:
             filename = posixpath.join(directory, x)
-            if filename in exclusions:
+            if any([filename.endswith(ex) for ex in exclusions]):
                 continue
 
             if x.endswith(".c"):
@@ -55,12 +55,18 @@ def get_sources(source):
 
     return result
 
-sources = ["rekall_yara/yara-python/yara-python.c"]
-sources += get_sources("rekall_yara/yara/libyara/")
+rekall_yara_dir = os.path.dirname(__file__)
+
+sources = [os.path.join(rekall_yara_dir,
+                        "rekall_yara/yara-python/yara-python.c")]
+sources += get_sources(os.path.join(rekall_yara_dir,
+                                    "rekall_yara/yara/libyara/"))
+
 
 def parse_version():
     """Create a version based on the yara version."""
-    version = open("rekall_yara/version.txt").read()
+    version = open(os.path.join(rekall_yara_dir,
+                                "rekall_yara/version.txt")).read()
     m = re.search(r"(\d+)\.(\d+)\.(\d+)", version)
     if m:
         return "%s.%s.%s.%s" % (m.group(1),
@@ -77,13 +83,21 @@ class BuildExtCommand(build_ext):
     project_builder = None
 
     def run(self):
-        # Except on Linux we need to run the configure script.
+        # Except on Windows we need to run the configure script.
         if platform.system() != "Windows":
+            configure = os.path.join(
+                rekall_yara_dir, "rekall_yara/yara/configure")
+            if not os.path.exists(configure):
+                subprocess.check_call(
+                    ["/bin/sh", "./bootstrap.sh"],
+                    cwd=os.path.join(rekall_yara_dir,
+                                     "rekall_yara/yara/"))
             subprocess.check_call(
                 ["/bin/sh", "./configure", "--without-crypto",
                  "--disable-magic", "--disable-cuckoo",
                  "--disable-dmalloc"],
-                cwd="rekall_yara/yara/")
+                cwd=os.path.join(rekall_yara_dir,
+                                 "rekall_yara/yara/"))
 
         build_ext.run(self)
 
@@ -112,10 +126,10 @@ class Sdist(sdist):
 
 
 include_dirs = [
-    'rekall_yara/yara/yara-python',
-    'rekall_yara/yara/libyara/include',
-    'rekall_yara/yara/libyara/',
-    'rekall_yara/yara/',
+    os.path.join(rekall_yara_dir, 'rekall_yara/yara/yara-python'),
+    os.path.join(rekall_yara_dir, 'rekall_yara/yara/libyara/include'),
+    os.path.join(rekall_yara_dir, 'rekall_yara/yara/libyara/'),
+    os.path.join(rekall_yara_dir, 'rekall_yara/yara/'),
 ]
 libraries = []
 
