@@ -42,7 +42,10 @@ def get_sources(source):
     exclusions = set([
         "modules/cuckoo.c",
         "modules/magic.c",
-        "modules/hash.c"
+        "modules/hash.c",
+        "proc/linux.c",
+        "proc/windows.c",
+        "proc/mach.c",
     ])
     for directory, _, files in os.walk(source):
         for x in files:
@@ -134,7 +137,11 @@ include_dirs = [
 libraries = []
 
 if platform.system() == "Windows":
-    include_dirs.append("rekall_yara/windows/")
+    # Python 2 on windows uses an ancient compiler which does not have
+    # stdint. Python 3 uses VC14 which has a working stdint.h
+    if sys.version_info[0] < 3:
+        include_dirs.append("rekall_yara/windows/")
+
     libraries.append("advapi32")
 
 
